@@ -47,6 +47,8 @@ We will be building a Marketplace application. We will keep track of the items a
 rails new marketplace-api --api --minimal --skip-javascript -T
 ```
 
+Explanation of what --minimal excludes: https://www.bootrails.com/blog/rails-new-options/#skip-almost-all-features
+
 - `cd` into `marketplace-api`
 
 ### Configure CORS<a name="pt2"></a>
