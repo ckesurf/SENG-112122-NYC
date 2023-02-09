@@ -1,386 +1,167 @@
-# Lecture 5 Authentication
+# Lecture 6 Authorization
 
 ### Deliverables
 
-- [ ] Add a signup feature to API
-- [ ] Add a login feature to API to include authentication
-- [ ] Add a users show route that will authenticate a users session on the front end as "/me"
-- [ ] Add a logout feature to API
+- [ ] Allow a user to access endpoints in the application only if logged in
+- [ ] Allow a seller to update and delete items that belong to the seller
+- [ ] Setup user for admin capabilities
+- [ ] Also allow an admin to update and delete items
 
-### Important Talking Points
+Authentication and authorization play a role together in the process of allowing users to access dedicated parts of the application. We could have an application that allows users to see some parts of the application if not signed up or logged in, while restricting more interactive portions of the app. This is a decision made by the designer of the application.
 
-- Cookies
-- Sessions
-- Authentication
-- Stateless HTTP
+Example: We can view reddit threads, but cannot post to them without being logged in.
 
-The current problem we are aiming to solve is that HTTP is stateless. It does not remember important information, particularly about a user, between requests. Each request is handled individually.
+To protect certain routes, we will add a check before returning any JSON to ensure that a user is logged in.
 
-To solve this error, we set sessions and cookies that are shared between the server and client and vise versa to keep track of certain information, including our users login.
+### Is the user logged in and authorized?
 
-### Configuring Rails app to use cookies and sessions
-
-- Inside `config/application.rb`
+1. Add a method `authenticate_user` that will check to see if a current user exists, meaning someone is logged in. If not, return an unauthorized error with a message. The goal will be to check this method before any response is generated from a request in the action for points in the application we do not want users to access if not logged in.
 
 ```rb
-module MyApp
-  class Application < Rails::Application
-    config.load_defaults 6.1
-    config.api_only = true
-
-    config.middleware.use ActionDispatch::Cookies
-    config.middleware.use ActionDispatch::Session::CookieStore
-
-    config.action_dispatch.cookies_same_site_protection = :strict # ensures that cookies are only shared on the same domain.
-  end
+def authenticate_user
+  return render json: { error: "Not authorized" }, status: :unauthorized unless current_user
 end
 ```
 
-- Inside `app/controllers/application_controller.rb` give access to cookies to all subsequent controllers
+Define which actions to invoke `authenticate_user` before executing action logic by using a controller filter: `before_action`
+
+```rb
+before_action :authenticate_user
+```
+
+<details>
+  <summary>
+    Where should the before action be defined if we are restricting most of the applications domain?
+  </summary>
+  <hr/>
 
 ```rb
 class ApplicationController < ActionController::API
-  include ActionController::Cookies
+before_action :authenticate_user
+...
 end
 ```
 
-### /signup
+  <hr/>
 
-The user is here because they have not set up an account. Essentially, we are going to create a new user object with the submitted form data.
+</details>
+<br/>
 
-#### The flow:
+<details>
+  <summary>
+    Thinking about what the before_action does, what problems can be anticipated in terms of accessibility? How can this issue be solved?
+  </summary>
+  <hr/>
 
-1. Client: At `'/signup'`, render a signup form.
-2. Client: When user submits the form, make a `POST` fetch request to the endpoint `/signup`, with form data included.
-3. Server: `users#create` will validate the newly created user object. If valid, return a serialized user with a status of ok. If invalid, provide error messages and failure status.
+No access to `/signup`, `/login` or `/me`
 
-#### Setup:
-
-- Inside Gemfile, comment back in `bcrypt` and run `bundle update`
-
-`bcrypt` allows us to call on the `has_secure_password` which adds multiple methods to the user model for reading, writing and encrypting passwords.
-
-```
-password=
-password_confirmation=
-authenticate
-```
-
-- Inside User model add:
+Solution:
 
 ```rb
-has_secure_password
+skip_before_action
 ```
 
-Encrypted passwords will be stored inside of a special column called `password_digest`.
+  <hr/>
 
-1. Let's create a new column in the `users` table: `password_digest`
+</details>
+<br/>
 
-```rb
-rails g migration AddPasswordDigestToUsers password_digest
-```
-
-run `rails db:migrate`
-
-Add `password` to `UsersController` strong params
-
-```rb
-  def user_params
-      params.permit(:username, :email, :password, :password_confirmation)
-  end
-```
-
-WARNING: Do not serialize user objects with password. Must be excluded. No changes are necessary to the current `UserSerializer`
-
-Add an endpoint to handle a signup request:
-
-```rb
-get '/signup', to: "users#create"
-```
-
-At the moment, we have a `current_user` method inside the ApplicationController that is hardcoded to return a user object. We want to make this more dynamic based on the stored session. Let's update `current_user` to:
-
-```rb
-    def current_user
-        User.find_by(id: session[:user_id])
-    end
-```
-
-Update `create` in UsersController:
-
-```rb
-  def create
-    user = User.create(user_params)
-    session[:user_id] = user.id # this is the piece that logs a user in and keeps track of users info in subsequent requests.
-    render json: user, status: :created
-  end
-```
-
-On the front end:
-
-```js
-import React, { useState } from "react";
-
-const SignupForm = () => {
-  const [formData, setFormData] = useState({
-    username: "",
-    password: "",
-    email: "",
-  });
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-  function handleSubmit(e) {
-    e.preventDefault();
-
-    const userCreds = { ...formData };
-
-    fetch("/users", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(userCreds),
-    }).then((res) => {
-      if (res.ok) {
-        res.json().then((user) => {
-          setCurrentUser(user);
-        });
-      } else {
-        res.json().then((errors) => {
-          console.error(errors);
-        });
-      }
-    });
-  }
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <label htmlFor="username">Username:</label>
-      <input
-        id="username-signup-input"
-        type="text"
-        name="username"
-        value={formData.username}
-        onChange={handleChange}
-      />
-      <label htmlFor="email">Email:</label>
-      <input
-        id="email-signup-input"
-        type="text"
-        name="email"
-        value={formData.email}
-        onChange={handleChange}
-      />
-      <label htmlFor="password">Password:</label>
-      <input
-        id="password-signup-input"
-        type="password"
-        name="password"
-        value={formData.password}
-        onChange={handleChange}
-      />
-      <button type="submit">Submit</button>
-    </form>
-  );
-};
-
-export default SignupForm;
-```
-
-### /me
-
-This is a route that will return currently logged in user if one exists. It will do so by checking the `current_user` method defined inside ApplicationController. On the frontend, we will use this when the app initially mounts to determine if user already has access to an authenticated app, or if they need to login/sign up.
-
-#### The flow:
-
-1. Client: When a user first lands on the app, a fetch request will be made to check if user has already been authenticated.
-2. Client: A GET fetch request will be made to `/me` to acquire if a current user exists.
-3. Server: The users show action is responsible for rendering a response based on the `current_user` return value.
-4. Client: If client is not authenticated, the authentication process will begin by rendering either a login or signup form.
-
-Define an endpoint for this feature:
-
-```rb
-get '/me', to: "users#show"
-```
-
-Inside `UsersController` we will check to see if current_user is returning a currently logged in user. This is to ensure that our user does not need to follow authentication again.
-
-```rb
-def show
-  if current_user
-    render json: current_user, status: :ok
-  else
-    render json: "No current session stored", status: :unauthorized
-  end
-end
-```
-
-Front end code:
-
-```js
-import { useState, useEffect } from "react";
-import { BrowserRouter as Router } from "react-router-dom";
-import LoggedIn from "./LoggedIn";
-import LoggedOut from "./LoggedOut";
-
-const App = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
-
-  useEffect(() => {
-    fetch("/me").then((res) => {
-      if (res.ok) {
-        res.json().then((user) => {
-          setCurrentUser(user);
-          setIsAuthenticated(true);
-        });
-      }
-    });
-  }, []);
-
-  if (!isAuthenticated) {
-    return <div></div>;
-  }
-  return (
-    <div className="app">
-      <Router>{false ? <LoggedIn /> : <LoggedOut />}</Router>
-    </div>
-  );
-};
-
-export default App;
-```
-
-### /login
-
-For login and logout, we will use a special controller, `SessionsController`
-
-```rb
-rails g controller sessions create destroy
-```
-
-Add the login endpoint to the routes:
-
-```rb
-post "/login", to: "sessions#create"
-```
-
-In the `SessionsController`
+We want to add a `skip_before_action` to the `sessions_controller` and allow a logged out user to make a request to login.
 
 ```rb
 class SessionsController < ApplicationController
-  def create
-    user = User.find_by(username: params[:username])
-    if user&.authenticate(params[:password])
-      session[:user_id] = user.id
-      render json: user, status: :ok
-    else
-      render json: "Invalid Credentials", status: :unauthorized
-    end
+skip_before_action :authenticate_user, only: [:create]
+end
+```
+
+Let's also skip the authorization for endpoints: `/signup` and `/me`
+
+```rb
+class UsersController < ApplicationController
+skip_before_action :authenticate_user, only: [:create, :show]
+end
+```
+
+Testing:
+
+1. Using Postman, make a GET request to `http://localhost:3000/items`. Expectation: Should render an unauthorized error(401)
+2. Make a POST request to `http://localhost:3000/signup`. Expectation: Success.
+
+### Adding an admin feature
+
+While sellers can update/delete the items that belong to them self, we also want to allow admins some control over the application to do so as well. To add this feature, complete the following steps:
+
+1. Add an `admin` column of boolean type to users table , defaulted to false:
+
+```bash
+rails g migration AddAdminToUsers admin:boolean
+```
+
+2. Inside migration, default this column to `false`
+
+```rb
+...
+add_column :users, :admin, :boolean, default: false
+```
+
+3. Run the migrations and confirm via schema
+
+```bash
+rails db:migrate
+```
+
+4. For testing purposes, set the first user object in the database as an admin
+
+```rb
+User.first.update(admin: true)
+```
+
+### Before moving forward, make the following change to the ItemsController:
+
+```rb
+class ItemsController < ApplicationController
+  before_action :set_item, only: [:show, :update, :destroy]
+  ...
+  private
+
+  def set_item
+    @item = Item.find_by(id: params[:id])
   end
 end
 ```
 
-```js
-import React, { useState } from "react";
+This will allow us to access `@item` in the next required step.
 
-const LoginForm = () => {
-  const [formData, setFormData] = useState({
-    username: "",
-    password: "",
-  });
+### Authorize the owner of the item(seller) or admin to update/delete an item
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    fetch("/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(formData),
-    }).then((res) => {
-      if (res.ok) {
-        res.json().then((user) => {
-          setCurrentUser(user);
-        });
-      } else {
-        res.json().then((errors) => {
-          console.error(errors);
-        });
-      }
-    });
-  };
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <label htmlFor="username">Username:</label>
-      <input
-        id="username-input"
-        type="text"
-        name="username"
-        value={formData.username}
-        onChange={handleChange}
-      />
-      <label htmlFor="password">Password:</label>
-      <input
-        id="password-input"
-        type="password"
-        name="password"
-        value={formData.password}
-        onChange={handleChange}
-      />
-      <button type="submit">Submit</button>
-    </form>
-  );
-};
-
-export default LoginForm;
-```
-
-### /logout
-
-Add the logout endpoint to the routes:
+1. Create a method that will check if the currently logged in user is an admin, or the seller of the item.
 
 ```rb
-delete "/logout", to: "sessions#destroy"
-```
-
-In the `SessionsController`
-
-```rb
-class SessionsController < ApplicationController
-...
-
-  def destroy
-    session.delete :user_id
-  end
-
+def is_authorized
+  permitted = current_user.admin? || @item.seller == current_user
+  render json: "Accessibility is not permitted", status: :forbidden unless permitted
 end
 ```
 
-Front end code:
+2. Invoke the `is_authorized` method before the update or destroy actions are processed.
 
-```js
-const handleLogout = () => {
-  fetch('/logout', {method: "DELETE"})
-  .then(res => {
-        if (res.ok) {
-          setCurrentUser(null)
-        }
-      })
-}
-...
-<button onClick={handleLogout}>Logout</button>
+```rb
+class ItemsController < ApplicationController
+  before_action :set_item, only: [:show, :update, :destroy]
+  before_action :is_authorized, only: [:update, :destroy]
+  ...
+  private
+
+  def set_item
+    @item = Item.find_by(id: params[:id])
+  end
+end
 ```
+
+Testing:
+
+- To test this logic out:
+  1. Set a user as an admin, and make a PATCH or DELETE request to items to confirm that admin has permission.
+  2. Login as a user with no admin permissions, attempt a PATCH or DELETE request to items. This should return a forbidden status.
+  3. Login as a seller, find an item that belongs to seller and make a PATCH request to update. This should be allowed if seller is owner.
+  4. Attempt to DELETE an item that does not belong to current_user. This should render an error.
