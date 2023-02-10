@@ -3,9 +3,6 @@
 ### Deliverables
 
 - [ ] Allow a user to access endpoints in the application only if logged in
-- [ ] Allow a seller to update and delete items that belong to the seller
-- [ ] Setup user for admin capabilities
-- [ ] Also allow an admin to update and delete items
 
 Authentication and authorization play a role together in the process of allowing users to access dedicated parts of the application. We could have an application that allows users to see some parts of the application if not signed up or logged in, while restricting more interactive portions of the app. This is a decision made by the designer of the application.
 

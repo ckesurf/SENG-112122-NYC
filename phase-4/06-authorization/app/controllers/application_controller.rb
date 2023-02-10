@@ -14,8 +14,6 @@ private
     end
 
     def current_user
-        # session[:user_id]
-        # byebug
         User.find_by(id: session[:user_id])
     end
 end
