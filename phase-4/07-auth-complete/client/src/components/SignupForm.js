@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+// import { Link } from "react-router-dom";
 
 function SignupForm({ setCurrentUser }) {
   const [formData, setFormData] = useState({
@@ -27,7 +27,7 @@ function SignupForm({ setCurrentUser }) {
       if (resp.ok) {
         resp.json().then((user) => {
           console.log(user);
-          setCurrentUser(user);
+          // setCurrentUser(user);
         });
       } else {
         resp.json().then((errors) => {
@@ -69,10 +69,6 @@ function SignupForm({ setCurrentUser }) {
         </p>
         <p>
           <button type="submit">Sign Up</button>
-        </p>
-        <p>Have an account?</p>
-        <p>
-          <Link to="/">Log In</Link>
         </p>
       </form>
     </div>

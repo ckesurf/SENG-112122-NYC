@@ -5,7 +5,6 @@ import LoggedOutApp from "./components/LoggedOutApp";
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
-  const [authenticated, setAuthenticated] = useState(false);
   console.log(currentUser);
   useEffect(() => {
     fetch("/me", {
@@ -14,17 +13,11 @@ function App() {
       if (res.ok) {
         res.json().then((user) => {
           setCurrentUser(user);
-          setAuthenticated(true);
         });
-      } else {
-        setAuthenticated(true);
       }
     });
   }, []);
 
-  if (!authenticated) {
-    return <div></div>;
-  }
   return (
     <div>
       <h1>Marketplace App</h1>
