@@ -12,9 +12,13 @@ class UsersController < ApplicationController
 
     def show
         # user = User.find(params[:id])
-        user = User.find(session[:user_id])
+        if session[:user_id]
+            user = User.find(session[:user_id])
+            render json: user
+        else
+            render json: {error: 'not logged in'}, status: 404
+        end
 
-        render json: user
     end
 
     def destroy 

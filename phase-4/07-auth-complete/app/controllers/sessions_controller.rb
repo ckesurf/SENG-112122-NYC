@@ -10,5 +10,8 @@ class SessionsController < ApplicationController
   end
 
   def destroy
+    # delete the session's user id
+    # {my_key: 'value'}.delete(:my_key)
+    session.delete :user_id
   end
 end
