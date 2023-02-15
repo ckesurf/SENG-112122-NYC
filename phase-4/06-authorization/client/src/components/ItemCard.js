@@ -6,8 +6,7 @@ function ListingCard({ price, name, image_url }) {
       <strong>{name}</strong>
       <div className="image">
         <span className="price">${price}</span>
-        <p>hello</p>
-        <img src={image_url} />
+        {/* <img src={image_url} /> */}
       </div>
       <div className="details">
         {/* <button className="emoji-button delete">🗑</button> */}
