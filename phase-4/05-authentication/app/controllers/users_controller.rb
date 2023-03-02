@@ -10,11 +10,8 @@ class UsersController < ApplicationController
     end
 
     def show
-        if current_user
-            render json: current_user
-        else 
-            render json: "No current session stored", status: :unauthorized
-        end
+        user = User.find(params[:id])
+        render json: user
     end
 
     def destroy 

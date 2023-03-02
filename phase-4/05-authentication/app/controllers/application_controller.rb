@@ -12,10 +12,4 @@ private
     def invalid_record(invalid)
         render json: {error: invalid.record.errors.full_messages }, status: :unprocessable_entity
     end
-
-    def current_user
-        # session[:user_id]
-        # byebug
-        User.find_by(id: session[:user_id])
-    end
 end
