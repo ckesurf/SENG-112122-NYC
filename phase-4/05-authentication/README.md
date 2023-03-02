@@ -2,8 +2,8 @@
 
 ### Deliverables
 
-- [ ] Add a signup feature to API
-- [ ] Add a login feature to API to include authentication
+- [ ] Signup
+- [ ] Login
 - [ ] Add a users show route that will authenticate a users session on the front end as "/me"
 - [ ] Add a logout feature to API
 
@@ -56,54 +56,10 @@ The user is here because they have not set up an account. Essentially, we are go
 
 #### Setup:
 
-- Inside Gemfile, comment back in `bcrypt` and run `bundle update`
-
-`bcrypt` allows us to call on the `has_secure_password` which adds multiple methods to the user model for reading, writing and encrypting passwords.
-
-```
-password=
-password_confirmation=
-authenticate
-```
-
-- Inside User model add:
-
-```rb
-has_secure_password
-```
-
-Encrypted passwords will be stored inside of a special column called `password_digest`.
-
-1. Let's create a new column in the `users` table: `password_digest`
-
-```rb
-rails g migration AddPasswordDigestToUsers password_digest
-```
-
-run `rails db:migrate`
-
-Add `password` to `UsersController` strong params
-
-```rb
-  def user_params
-      params.permit(:username, :email, :password, :password_confirmation)
-  end
-```
-
-WARNING: Do not serialize user objects with password. Must be excluded. No changes are necessary to the current `UserSerializer`
-
 Add an endpoint to handle a signup request:
 
 ```rb
 get '/signup', to: "users#create"
-```
-
-At the moment, we have a `current_user` method inside the ApplicationController that is hardcoded to return a user object. We want to make this more dynamic based on the stored session. Let's update `current_user` to:
-
-```rb
-    def current_user
-        User.find_by(id: session[:user_id])
-    end
 ```
 
 Update `create` in UsersController:
@@ -194,14 +150,13 @@ export default SignupForm;
 
 ### /me
 
-This is a route that will return currently logged in user if one exists. It will do so by checking the `current_user` method defined inside ApplicationController. On the frontend, we will use this when the app initially mounts to determine if user already has access to an authenticated app, or if they need to login/sign up.
+This is a route that will return currently logged in user if one exists. On the frontend, we will use this when the app initially mounts to determine if user already has access to an authenticated app, or if they need to login/sign up.
 
 #### The flow:
 
-1. Client: When a user first lands on the app, a fetch request will be made to check if user has already been authenticated.
-2. Client: A GET fetch request will be made to `/me` to acquire if a current user exists.
-3. Server: The users show action is responsible for rendering a response based on the `current_user` return value.
-4. Client: If client is not authenticated, the authentication process will begin by rendering either a login or signup form.
+1. Client: When a user first lands on the app, a fetch request will be made to check if user has already been authenticated. A GET fetch request will be made to `/me` to acquire if a current user exists.
+2. Server: The users `#show` action is responsible for rendering a response with the current user in session.
+3. Client: If client is not authenticated, the authentication process will begin by rendering either a login or signup form.
 
 Define an endpoint for this feature:
 
@@ -213,8 +168,9 @@ Inside `UsersController` we will check to see if current_user is returning a cur
 
 ```rb
 def show
-  if current_user
-    render json: current_user, status: :ok
+  user = User.find_by(id: session[:user_id])
+  if user
+    render json: user, status: :ok
   else
     render json: "No current session stored", status: :unauthorized
   end
@@ -277,12 +233,8 @@ In the `SessionsController`
 class SessionsController < ApplicationController
   def create
     user = User.find_by(username: params[:username])
-    if user&.authenticate(params[:password])
-      session[:user_id] = user.id
-      render json: user, status: :ok
-    else
-      render json: "Invalid Credentials", status: :unauthorized
-    end
+    session[:user_id] = user.id
+    render json: user, status: :ok
   end
 end
 ```
